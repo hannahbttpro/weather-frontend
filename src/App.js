@@ -4,34 +4,45 @@ import "./App.css";
 function App() {
   const [countryCode, setCountryCode] = useState("");
   const [zipCode, setZipCode] = useState("");
-  const [response, setResponse] = useState("");
+  const [temp, setTemp] = useState(null);
   const [city, setCity] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!countryCode.trim()) return;
-    if (!zipCode.trim()) return;
+    if (!zipCode.trim() || !countryCode.trim()) {
+      setError("Please enter both zip code and country code.");
+      return;
+    }
 
     setLoading(true);
-    setResponse("");
+    setError("");
+    setTemp(null);
+    setCity("");
 
     try {
       const res = await fetch(process.env.REACT_APP_BACKEND_ADDRESS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ countryCode, zipCode }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zipCode,
+          countryCode: countryCode.toLowerCase(),
+        }),
       });
 
+      if (!res.ok) {
+        throw new Error("Backend error");
+      }
+
       const data = await res.json();
-      const temp = data?.main?.temp - 273.15
-      const city = data?.name
-      setResponse(temp);
-      setCity(city)
-    } catch (error) {
-      setResponse("Error contacting the backend");
-      console.error(error);
+
+      const temperatureCelsius = data.main.temp - 273.15;
+
+      setTemp(temperatureCelsius.toFixed(1));
+      setCity(data.name);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to retrieve weather data.");
     } finally {
       setLoading(false);
     }
@@ -39,87 +50,35 @@ function App() {
 
   return (
     <div className="App">
-      <header
-        className="App-header"
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "20px",
-        }}
-      >
-        <h1>Look for a city's weather</h1>
+      <header className="App-header">
+        <h1>🌦 Weather Lookup</h1>
 
-        <div>
+        <div className="form">
           <input
             value={zipCode}
             onChange={(e) => setZipCode(e.target.value)}
-            placeholder="Write your zip code"
-            style={{
-              padding: "10px",
-              width: "300px",
-              marginRight: "10px",
-              borderRadius: "4px",
-              border: "none",
-            }}
+            placeholder="Zip code (e.g. 69000)"
           />
+
           <input
-            type="text"
             value={countryCode}
             onChange={(e) => setCountryCode(e.target.value)}
-            placeholder="Write your country code (fr for France)"
-            style={{
-              padding: "10px",
-              width: "300px",
-              marginRight: "10px",
-              borderRadius: "4px",
-              border: "none",
-            }}
+            placeholder="Country code (e.g. fr)"
           />
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              padding: "10px 16px",
-              borderRadius: "4px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            {loading ? "Sending..." : "Send"}
+
+          <button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Loading..." : "Get weather"}
           </button>
         </div>
-        
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "15px",
-            borderRadius: "6px",
-            backgroundColor: "#282c34",
-            border: "1px solid #444",
-            minHeight: "60px",
-            width: "400px",
-            color: "white",
-          }}
-        >
-          {city}
-        </div>
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "15px",
-            borderRadius: "6px",
-            backgroundColor: "#282c34",
-            border: "1px solid #444",
-            minHeight: "60px",
-            width: "400px",
-            color: "white",
-          }}
-        >
-          {response + " °C"}
-        </div>
+
+        {error && <p className="error">{error}</p>}
+
+        {temp && !error && (
+          <div className="weather-card">
+            <h2>{city}</h2>
+            <p className="temperature">{temp} °C</p>
+          </div>
+        )}
       </header>
     </div>
   );
